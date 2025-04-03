@@ -18,7 +18,6 @@ This electronic store management system is a project based on Python and MySQL, 
 
    ```bash
    git clone https://github.com/yuanbaoerer/electronic_shop_pymysql.git
-   cd pymysql_GroupPrj
    ```
 
 2. **Build database**
