@@ -1,0 +1,10 @@
+{
+    "database": {
+        "host": "localhost",
+        "user": "root",
+        "password": "123456",
+        "db": "electronics_shop",
+        "port": 3306,
+        "charset": "utf8mb4"
+    }
+}
