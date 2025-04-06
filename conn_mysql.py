@@ -28,4 +28,4 @@ def connect_db():
 
 if __name__ == '__main__':
     conn = connect_db()
-    print(conn)
+    print(f"数据库连接成功：{conn}")
