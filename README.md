@@ -1,4 +1,4 @@
-## Readme
+## README
 
 #### **Overview**
 
@@ -40,8 +40,8 @@ This electronic store management system is a project based on Python and MySQL, 
    {
        "database": {
            "host": "localhost",
-           "user": "root",
-           "password": "123456",
+           "user": "your_userName",
+           "password": "your_password",
            "db": "electronics_shop",
            "port": 3306,
            "charset": "utf8mb4"
