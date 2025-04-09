@@ -3,13 +3,13 @@ import pymysql
 from pymysql.cursors import DictCursor
 
 def load_config():
-    """从JSON文件加载配置"""
+    """Load configuration from JSON file."""
     with open('config.json', 'r') as f:
         config = json.load(f)
     return config['database']
 
 def connect_db():
-    """获取数据库连接"""
+    """Obtain database connection"""
     config = load_config()
     try:
         conn = pymysql.connect(
@@ -23,9 +23,9 @@ def connect_db():
         )
         return conn
     except pymysql.Error as e:
-        print(f"数据库连接失败: {e}")
+        print(f"Database connection failed: {e}")
         return None
 
 if __name__ == '__main__':
     conn = connect_db()
-    print(f"数据库连接成功：{conn}")
+    print(f"Database connection succeeded：{conn}")

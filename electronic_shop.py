@@ -5,26 +5,26 @@ from datetime import date
 print("Welcome to the electronic shop!")
 
 def list_vendors():
-    """显示所有供应商及实时评分（包含无评分供应商）"""
+    """Display all vendors and their real-time ratings (including vendors without ratings)"""
     conn = connect_db()
     if not conn: return
     try:
         with conn.cursor() as cursor:
             cursor.execute("""
                 SELECT v.vendor_id, v.business_name, v.geographical_presence, 
-                       COALESCE(vs.feedback_score, '暂无评分') AS score
+                       COALESCE(vs.feedback_score, 'No rating yet') AS score
                 FROM Vendor v
                 LEFT JOIN VendorScores vs ON v.vendor_id = vs.vendor_id
                 """)
             vendors = cursor.fetchall()
-            print("\n======= 供应商列表 =======")
+            print("\n======= Vendor List =======")
             for vendor in vendors:
-                print(f"ID: {vendor[0]}, 名称: {vendor[1]}, 地区: {vendor[2]}, 评分: {vendor[3]}")
+                print(f"ID: {vendor[0]}, Name: {vendor[1]}, Region: {vendor[2]}, Rating: {vendor[3]}")
     finally:
         conn.close()
 
 def add_vendor(vendor_id, name, region):
-    """添加新供应商"""
+    """Add a new vendor"""
     conn = connect_db()
     if not conn: return
     try:
@@ -34,59 +34,59 @@ def add_vendor(vendor_id, name, region):
                 (vendor_id, name, region)
             )
             conn.commit()
-            print(f"供应商 {name} 添加成功！")
+            print(f"Vendor {name} added successfully!")
     except pymysql.IntegrityError:
-        print("错误：供应商ID已存在！")
+        print("Error: Vendor ID already exists!")
     finally:
         conn.close()
 
 '''
-产品搜索
+Product Search
 '''
 def search_products(keyword):
-    """根据标签或名称搜索产品（个性化推荐）"""
-    conn = connect_db()  # 仅获取连接对象
+    """Search for products by tag or name (personalized recommendation)"""
+    conn = connect_db()  # Only get the connection object
     if conn:
         try:
-            cursor = conn.cursor()  # 在连接成功后创建游标
+            cursor = conn.cursor()  # Create a cursor after the connection is successful
             cursor.execute("""
                 SELECT * FROM Product 
                 WHERE tag1 LIKE %s OR tag2 LIKE %s OR tag3 LIKE %s OR product_name LIKE %s
                 ORDER BY listed_price DESC
             """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", f"%{keyword}%"))
             results = cursor.fetchall()
-            print(f"\n======= 搜索 '{keyword}' 结果 =======")
+            print(f"\n======= Search results for '{keyword}' =======")
             for product in results:
-                print(f"ID: {product[0]}, 名称: {product[2]}, 价格: {product[3]}, 标签: {product[4]}/{product[5]}/{product[6]}")
+                print(f"ID: {product[0]}, Name: {product[2]}, Price: {product[3]}, Tags: {product[4]}/{product[5]}/{product[6]}")
         except pymysql.Error as e:
-            print(f"数据库操作失败: {e}")
+            print(f"Database operation failed: {e}")
         finally:
-            conn.close()  # 确保连接关闭
+            conn.close()  # Ensure the connection is closed
 
 
 '''
-产品管理
+Product Management
 '''
 def list_products_by_vendor(vendor_id):
-    """显示某供应商的产品（带库存状态）"""
+    """Display products of a certain vendor (with inventory status)"""
     conn = connect_db()
     if not conn: return
     try:
         with conn.cursor() as cursor:
             cursor.execute("SELECT * FROM Product WHERE vendor_id = %s", (vendor_id,))
             products = cursor.fetchall()
-            print(f"\n======= {vendor_id} 的产品列表 =======")
+            print(f"\n======= Product List of {vendor_id} =======")
             for product in products:
-                status = "有货" if product[7] > 0 else "缺货"
+                status = "In stock" if product[7] > 0 else "Out of stock"
                 print(
-                    f"ID: {product[0]}, 名称: {product[2]}, 价格: {product[3]}, 标签: {product[4]}/{product[5]}/{product[6]}, 库存: {status}")
+                    f"ID: {product[0]}, Name: {product[2]}, Price: {product[3]}, Tags: {product[4]}/{product[5]}/{product[6]}, Inventory: {status}")
     finally:
         conn.close()
 
-# 添加产品
+# Add a product
 def add_product(product_id, vendor_id, name, price, tags, inventory):
-    """添加新产品（自动截取前3个标签）"""
-    tags = (tags + [None, None, None])[:3]  # 确保最多3个标签
+    """Add a new product (automatically intercept the first 3 tags)"""
+    tags = (tags + [None, None, None])[:3]  # Ensure a maximum of 3 tags
     conn = connect_db()
     if not conn: return
     try:
@@ -97,81 +97,81 @@ def add_product(product_id, vendor_id, name, price, tags, inventory):
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (product_id, vendor_id, name, price, tags[0], tags[1], tags[2], inventory))
             conn.commit()
-            print(f"产品 {name} 添加成功！")
+            print(f"Product {name} added successfully!")
     except pymysql.IntegrityError:
-        print("错误：产品ID已存在或供应商不存在！")
+        print("Error: Product ID already exists or vendor does not exist!")
     finally:
         conn.close()
 
 '''
-订单管理
+Order Management
 '''
 def create_order(order_id, customer_id, product_list):
-    """创建订单（缩短 order_detail_id）"""
+    """Create an order (shorten the order_detail_id)"""
     conn = connect_db()
     if not conn: return
     try:
         with conn.cursor() as cursor:
             conn.begin()
-            # 检查客户是否存在
+            # Check if the customer exists
             cursor.execute("SELECT 1 FROM Customer WHERE customer_id = %s", (customer_id,))
             if not cursor.fetchone():
-                raise ValueError("客户不存在！")
-            # 插入订单
+                raise ValueError("Customer does not exist!")
+            # Insert the order
             cursor.execute(
                 "INSERT INTO Orders (order_id, customer_id, order_date) VALUES (%s, %s, %s)",
                 (order_id, customer_id, date.today())
             )
 
-            # 插入订单详情并扣减库存
+            # Insert order details and deduct inventory
             for idx, (product_id, quantity) in enumerate(product_list, 1):
                 cursor.execute("SELECT listed_price, inventory FROM Product WHERE product_id = %s FOR UPDATE",
                                (product_id,))
                 result = cursor.fetchone()
                 if not result:
-                    raise ValueError(f"产品 {product_id} 不存在！")
+                    raise ValueError(f"Product {product_id} does not exist!")
                 price, stock = result
                 if stock < quantity:
-                    raise ValueError(f"产品 {product_id} 库存不足！")
+                    raise ValueError(f"Product {product_id} is out of stock!")
 
-                # 生成简洁的 order_detail_id（示例：O20231002_1）
-                detail_id = f"{order_id}_{idx}"  # 使用序号代替产品ID
+                # Generate a concise order_detail_id (example: O20231002_1)
+                detail_id = f"{order_id}_{idx}"  # Use the serial number instead of the product ID
                 cursor.execute("""
                     INSERT INTO OrderDetail 
                     (order_detail_id, order_id, product_id, quantity, unit_price)
                     VALUES (%s, %s, %s, %s, %s)
                 """, (detail_id, order_id, product_id, quantity, price))
 
-                # 更新库存
+                # Update inventory
                 cursor.execute(
                     "UPDATE Product SET inventory = inventory - %s WHERE product_id = %s",
                     (quantity, product_id)
                 )
 
             conn.commit()
-            print(f"订单 {order_id} 创建成功！")
+            print(f"Order {order_id} created successfully!")
     except Exception as e:
         conn.rollback()
-        print(f"订单创建失败: {e}")
+        print(f"Order creation failed: {e}")
     finally:
         conn.close()
 
 def cancel_order(order_id):
-    """取消订单（仅限未发货状态）"""
+    """Cancel an order (only for orders in the pending status)"""
     conn = connect_db()
     if not conn: return
     try:
         with conn.cursor() as cursor:
             conn.begin()
-            # 检查订单状态
+            # Check the order status
             cursor.execute("SELECT status FROM Orders WHERE order_id = %s FOR UPDATE", (order_id,))
             result = cursor.fetchone()
             if not result:
-                raise ValueError("订单不存在！")
+                raise ValueError("Order does not exist!")
             status = result[0]
-            if status != '待处理':
-                raise ValueError("订单已发货，无法取消！")
-            # 恢复库存
+            if status != 'Pending':
+                raise ValueError("Order has been shipped and cannot be cancelled!")
+            # Restore inventory
             cursor.execute("SELECT product_id, quantity FROM OrderDetail WHERE order_id = %s", (order_id,))
             details = cursor.fetchall()
             for product_id, quantity in details:
@@ -180,57 +180,57 @@ def cancel_order(order_id):
                     (quantity, product_id)
                 )
 
-            # 删除订单（级联删除详情）
+            # Delete the order (cascade delete details)
             cursor.execute("DELETE FROM Orders WHERE order_id = %s", (order_id,))
             conn.commit()
-            print(f"订单 {order_id} 已取消，库存已恢复！")
+            print(f"Order {order_id} has been cancelled, and inventory has been restored!")
     except Exception as e:
         conn.rollback()
-        print(f"取消订单失败: {e}")
+        print(f"Order cancellation failed: {e}")
     finally:
         conn.close()
 
 def remove_product_from_order(order_id, product_id):
-    """从订单中移除特定产品（仅限未发货状态）"""
+    """Remove a specific product from an order (only for orders in the pending status)"""
     conn = connect_db()
     if not conn: return
     try:
         with conn.cursor() as cursor:
             conn.begin()
-            # 检查订单状态
+            # Check the order status
             cursor.execute("SELECT status FROM Orders WHERE order_id = %s FOR UPDATE", (order_id,))
             result = cursor.fetchone()
             if not result:
-                raise ValueError("订单不存在！")
+                raise ValueError("Order does not exist!")
             status = result[0]
-            if status != '待处理':
-                raise ValueError("订单已发货，无法移除产品！")
+            if status != 'Pending':
+                raise ValueError("Order has been shipped and cannot remove the product!")
 
-            # 检查产品是否在订单中
+            # Check if the product is in the order
             cursor.execute("SELECT quantity FROM OrderDetail WHERE order_id = %s AND product_id = %s", (order_id, product_id))
             result = cursor.fetchone()
             if not result:
-                raise ValueError(f"产品 {product_id} 不在订单 {order_id} 中！")
+                raise ValueError(f"Product {product_id} is not in order {order_id}!")
             quantity = result[0]
 
-            # 恢复库存
+            # Restore inventory
             cursor.execute("UPDATE Product SET inventory = inventory + %s WHERE product_id = %s", (quantity, product_id))
 
-            # 删除订单详情记录
+            # Delete the order detail record
             cursor.execute("DELETE FROM OrderDetail WHERE order_id = %s AND product_id = %s", (order_id, product_id))
 
             conn.commit()
-            print(f"产品 {product_id} 已从订单 {order_id} 中移除，库存已恢复！")
+            print(f"Product {product_id} has been removed from order {order_id}, and inventory has been restored!")
     except Exception as e:
         conn.rollback()
-        print(f"移除产品失败: {e}")
+        print(f"Product removal failed: {e}")
     finally:
         conn.close()
 
 def rate_product(order_id, product_id, rating):
-    """对订单中的产品评分（0-5分）"""
+    """Rate a product in an order (0-5 points)"""
     if rating < 0 or rating > 5:
-        raise ValueError("评分必须在0到5之间！")
+        raise ValueError("Rating must be between 0 and 5!")
     conn = connect_db()
     if not conn: return
     try:
@@ -241,43 +241,40 @@ def rate_product(order_id, product_id, rating):
                 WHERE order_id = %s AND product_id = %s
             """, (rating, order_id, product_id))
             conn.commit()
-            print(f"订单 {order_id} 的产品 {product_id} 评分成功！")
+            print(f"Product {product_id} in order {order_id} has been rated successfully!")
     except Exception as e:
-        print(f"评分失败: {e}")
+        print(f"Rating failed: {e}")
     finally:
         conn.close()
 
 
 if __name__ == '__main__':
-    # 1. 添加新供应商
-    # add_vendor("V_XIAOMI", "小米", "中国")
+    # # 1. add a new vendor
+    # add_vendor("V_XIAOMI", "Xiaomi", "China")
+    # # 2. add new product
+    # add_product("P_XIAOMI_13", "V_XIAOMI", "Xiaomi 13 Ultra", 5999.00, ["Phone", "Leica", "Flagship"], 100)
 
-    # 2. 添加新产品
-    # add_product("P_XIAOMI_13", "V_XIAOMI", "小米13 Ultra", 5999.00, ["手机", "徕卡", "旗舰"], 100)
-
-    # 3. 注册客户
+    # 3.
     # conn = connect_db()
     # with conn.cursor() as cursor:
     #     cursor.execute(
-    #         "INSERT INTO Customer (customer_id, contact_number, shipping_address) VALUES ('C006', '13800138006', '北京市朝阳区')")
+    #         "INSERT INTO Customer (customer_id, contact_number, shipping_address) VALUES ('C006', '13800138006', 'Chaoyang District, Beijing')")
     #     conn.commit()
-
-    # 4. 下单并评分
+    #
+    # # 4. Order and rate
     # create_order("O006", "C006", [("P_HUAWEI_MATE60", 1), ("P_FUJI_XS20", 1)])
     # rate_product("O006", "P_HUAWEI_MATE60", 4.5)
     # rate_product("O006", "P_FUJI_XS20", 4.7)
 
-    # 5. 展示供应商评分
+    # # 5. show the rating of vendors
     # list_vendors()
 
-    # 6. 取消订单测试
+    # # 6. cancel order
     # create_order("O007", "C001", [("P_HUAWEI_MATEVIEW", 1)])
     # cancel_order("O007")
 
-    # 7. 搜索产品
-    # search_products("防抖")
-
-    # 假设已经创建了订单 O006，包含产品 P_HUAWEI_MATE60 和 P_FUJI_XS20
-    # create_order("O006", "C006", [("P_HUAWEI_MATE60", 1), ("P_FUJI_XS20", 1)])
-    # 从订单 O006 中移除产品 P_HUAWEI_MATE60
+    # 7. remove product from O006
     # remove_product_from_order("O006", "P_HUAWEI_MATE60")
+    #
+    # # 8. search products according to keywords
+    # search_products("Anti-shake")
